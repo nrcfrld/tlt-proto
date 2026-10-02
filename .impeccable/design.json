@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-02T00:00:00Z",
+  "title": "Design System: TLT Back Office",
+  "extensions": {
+    "shadows": [
+      {
+        "name": "dialog",
+        "value": "0 20px 70px #16362d30",
+        "purpose": "Protected form focus"
+      },
+      {
+        "name": "toast",
+        "value": "0 8px 30px #15392c26",
+        "purpose": "Transient feedback"
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "150ms",
+        "purpose": "Control hover changes"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "financial-first",
+        "value": "1050px"
+      },
+      {
+        "name": "drawer",
+        "value": "760px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Commit a financial operation.",
+      "html": "<button class=\"ds-button\">Record payment</button>",
+      "css": ".ds-button{background:#15635b;color:white;border:1px solid #15635b;border-radius:5px;padding:9px 14px;font:600 14px sans-serif}.ds-button:hover{background:#104b45}.ds-button:focus-visible{outline:2px solid #2f897e;outline-offset:3px}"
+    },
+    {
+      "name": "Secondary button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Non-primary action.",
+      "html": "<button class=\"ds-secondary\">Add service</button>",
+      "css": ".ds-secondary{background:white;color:#243b3a;border:1px solid #d8e2de;border-radius:5px;padding:9px 14px;font:600 14px sans-serif}.ds-secondary:hover{background:#f0f5f3}.ds-secondary:focus-visible{outline:2px solid #2f897e;outline-offset:3px}"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "description": "Validated entry.",
+      "html": "<input class=\"ds-input\" placeholder=\"Amount (USD)\"/>",
+      "css": ".ds-input{border:1px solid #d7e1dd;border-radius:5px;padding:10px 11px;color:#243b3a;font:14px sans-serif}.ds-input:focus-visible{outline:2px solid #2f897e;outline-offset:3px}"
+    },
+    {
+      "name": "Active navigation",
+      "kind": "nav",
+      "description": "Selected workspace route.",
+      "html": "<a class=\"ds-nav\" href=\"#\">Reservations</a>",
+      "css": ".ds-nav{display:block;background:#e7f2ee;color:#146153;border-radius:5px;padding:10px 13px;font:600 14px sans-serif;text-decoration:none}.ds-nav:hover{background:#dcece4}.ds-nav:focus-visible{outline:2px solid #2f897e;outline-offset:3px}"
+    },
+    {
+      "name": "Status",
+      "kind": "chip",
+      "description": "Paid or confirmed state.",
+      "html": "<span class=\"ds-chip\">Confirmed</span>",
+      "css": ".ds-chip{background:#eaf5ed;color:#2b7155;border-radius:4px;padding:3px 7px;font:500 12px sans-serif}"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "description": "Compact operational surface.",
+      "html": "<section class=\"ds-panel\">Financial breakdown</section>",
+      "css": ".ds-panel{background:white;color:#243b3a;border:1px solid #e1e8e7;border-radius:6px;padding:21px 23px;font:600 16px sans-serif}"
+    }
+  ],
+  "narrative": {
+    "overview": "Compact, auditable financial operations workspace.",
+    "keyCharacteristics": [
+      "Aligned money",
+      "Compact tables",
+      "Teal operational accent"
+    ],
+    "dos": ["Do keep money aligned and its derivation visible."],
+    "donts": [
+      "Don't add gradients, marketing heroes, property imagery or decorative motion."
+    ]
+  }
+}
