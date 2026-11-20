@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 
 export default function Login({ onLogin }: { onLogin: () => void }) {
-  const [email, setEmail] = useState("enrico@example.test");
+  const [email, setEmail] = useState("owner@tlt.com");
   const [password, setPassword] = useState("Prototype123!");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
