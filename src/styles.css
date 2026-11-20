@@ -116,10 +116,6 @@ textarea {
   width: 100%;
   max-width: 440px;
 }
-.login-brand {
-  justify-content: center;
-  padding: 0 0 28px;
-}
 .login-panel {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -188,47 +184,27 @@ textarea {
   flex-direction: column;
 }
 .brand {
-  display: flex;
-  align-items: center;
-  gap: 13px;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
   padding: 0 8px 30px;
 }
-.brand-symbol {
-  font-size: 36px;
-  line-height: 1;
-  font-weight: 750;
-  letter-spacing: -0.08em;
-  color: var(--teal-dark);
-}
-.brand-symbol span {
-  color: #b89055;
-}
-.brand > div {
-  font-size: 10px;
-  font-weight: 600;
-  color: #5a6b69;
-}
-.brand > div > span {
+.brand-logo {
   display: block;
+  width: 100%;
+  height: auto;
+}
+.brand-caption {
   font-size: 14px;
+  font-weight: 600;
   color: #2c4541;
-  margin-top: 3px;
 }
-.workspace-selector {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid var(--border);
-  padding: 10px;
-  margin-bottom: 24px;
-  border-radius: 5px;
-  font-size: 12px;
-  font-weight: 650;
+.brand.login-brand {
+  padding: 0 0 28px;
 }
-.workspace-selector > svg {
-  margin-left: auto;
+.login-brand .brand-logo {
+  max-width: 320px;
 }
-.workspace-avatar,
 .user-avatar,
 .small-avatar {
   display: grid;
@@ -238,13 +214,6 @@ textarea {
   border-radius: 5px;
   font-weight: 650;
 }
-.workspace-avatar {
-  width: 33px;
-  height: 33px;
-  font-size: 12px;
-  flex-shrink: 0;
-}
-.workspace-selector small,
 .user-profile small {
   display: block;
   font-size: 11px;
@@ -1123,13 +1092,6 @@ tbody tr:last-child td {
   .attention-item p {
     max-width: 230px;
   }
-  .brand {
-    gap: 10px;
-    padding-left: 3px;
-  }
-  .brand > div {
-    font-size: 9px;
-  }
 }
 @media (max-width: 1000px) {
   .metrics {
@@ -1256,9 +1218,6 @@ tbody tr:last-child td {
   }
   .panel-heading .text-link {
     font-size: 11px;
-  }
-  .brand > div {
-    font-size: 10px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

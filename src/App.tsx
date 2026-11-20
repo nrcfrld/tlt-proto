@@ -11,13 +11,13 @@ import {
   Plug,
   Settings,
   Users,
-  ChevronDown,
   PanelLeftClose,
   Menu,
   X,
   CircleHelp,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ComponentType } from "react";
+import { BrandMark } from "./components/BrandMark";
 import Dashboard from "./pages/Dashboard";
 import Reservations from "./pages/Reservations";
 import ReservationDetail from "./pages/ReservationDetail";
@@ -146,20 +146,8 @@ function AppShell() {
         className={`sidebar ${menu ? "open" : ""}`}
       >
         <Link to={firstPage ?? "/"} className="brand" onClick={() => setMenu(false)}>
-          <span className="brand-symbol">
-            tlt<span>·</span>
-          </span>
-          <div>
-            The Lembongan Traveller<span>Back Office</span>
-          </div>
+          <BrandMark />
         </Link>
-        <div className="workspace-selector">
-          <span className="workspace-avatar">TL</span>
-          <div>
-            TLT Management<small>Financial operations</small>
-          </div>
-          <ChevronDown size={15} />
-        </div>
         <nav aria-label="Main navigation">
           {mainNavigation.filter((item) => canAccess(item.to)).map(renderLink)}
           {financeNavigation.some((item) => canAccess(item.to)) && (

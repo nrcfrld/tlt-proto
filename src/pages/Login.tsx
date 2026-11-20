@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { BrandMark } from "../components/BrandMark";
 
 export default function Login({ onLogin }: { onLogin: () => void }) {
   const [email, setEmail] = useState("owner@tlt.com");
@@ -13,8 +14,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
     <main className="login-page">
       <div className="login-content">
         <div className="brand login-brand">
-          <span className="brand-symbol">tlt<span>·</span></span>
-          <div>The Lembongan Traveller<span>Back Office</span></div>
+          <BrandMark />
         </div>
         <section className="login-panel" aria-labelledby="login-title">
           <p className="login-notice">PROTOTYPE - All Data is Dummy</p>
