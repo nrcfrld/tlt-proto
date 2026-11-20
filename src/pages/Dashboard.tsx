@@ -12,16 +12,17 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { calculateFinancials, summarize } from "../utils/financial";
-import { compactMoney } from "../utils/currency";
+import { compactMoney, money } from "../utils/currency";
 import {
   Metrics,
   MonthFilter,
   PageHeader,
   PropertyFilter,
 } from "../components/UI";
+import { FinancialCharts } from "../components/FinancialCharts";
 import { ReservationTable } from "../components/ReservationTable";
 export default function Dashboard() {
-  const { reservations, rules, properties } = useApp();
+  const { reservations, reservationMonths, rules, properties } = useApp();
   const [month, setMonth] = useState("2026-07");
   const [property, setProperty] = useState("");
   const rows = reservations.filter(
@@ -61,15 +62,16 @@ export default function Dashboard() {
       />
       <div className="filter-toolbar dashboard-filters">
         <div className="filter-group">
-          <MonthFilter value={month} onChange={setMonth} />
+          <MonthFilter value={month} onChange={setMonth} additionalMonths={reservationMonths} />
           <PropertyFilter value={property} onChange={setProperty} />
         </div>
         <span className="muted subtle">
           <span className="live-dot" />
-          Mock data · July 2026
+          Demo data · Jan–Dec 2026
         </span>
       </div>
       <Metrics
+        compact
         items={[
           {
             label: "Total booking value",
@@ -79,7 +81,7 @@ export default function Dashboard() {
           {
             label: "TLT commission",
             value: s.tlt,
-            note: "Calculated from active property rules",
+                note: "Calculated from rules and reservation overrides",
             accent: true,
           },
           {
@@ -99,6 +101,11 @@ export default function Dashboard() {
             note: `${guestCount} balances awaiting payment`,
           },
         ]}
+      />
+      <FinancialCharts
+        month={month}
+        property={property}
+        onSelectMonth={setMonth}
       />
       <div className="dashboard-grid">
         <section className="panel revenue-panel">
@@ -121,7 +128,7 @@ export default function Dashboard() {
               >
                 <div className="revenue-name">
                   <span>{p.name}</span>
-                  <span>{compactMoney(p.value)}</span>
+                  <span title={money(p.value)} aria-label={money(p.value)}>{compactMoney(p.value)}</span>
                 </div>
                 <div className="bar-track">
                   <div
@@ -197,7 +204,7 @@ export default function Dashboard() {
             ))}
           </div>
           <div className="attention-note">
-            Owner amounts exclude reservations without an active rule.
+            Owner amounts require a matching rule or a manual override.
           </div>
         </section>
       </div>
@@ -205,7 +212,7 @@ export default function Dashboard() {
         <div className="panel-heading">
           <div>
             <h2>Recent reservations</h2>
-            <p>Unified bookings from Guesty and GuestPro</p>
+            <p>Bookings from PMS platforms and manual records</p>
           </div>
           <Link className="text-link" to="/reservations">
             View all reservations
@@ -215,7 +222,7 @@ export default function Dashboard() {
         <ReservationTable rows={rows.slice(0, 5)} compact />
       </section>
       <div className="workspace-footnote">
-        USD · Financial calculations are provisional. Guesty and GuestPro remain
+        IDR · Financial calculations are provisional. Guesty and GuestPro remain
         your operational PMS.
       </div>
     </>

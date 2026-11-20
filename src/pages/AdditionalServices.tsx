@@ -114,6 +114,9 @@ export default function AdditionalServices() {
                   <th>Reservation / guest</th>
                   <th>Property</th>
                   <th>Service</th>
+                  <th>Boat company</th>
+                  <th>Departure</th>
+                  <th>Return</th>
                   <th className="num">Adults</th>
                   <th className="num">Children</th>
                   <th className="num">FOC</th>
@@ -146,6 +149,9 @@ export default function AdditionalServices() {
                           {s.notes}
                         </span>
                       </td>
+                      <td>{s.type === "Boat Transfer" ? s.boatCompany || "—" : "—"}</td>
+                      <td>{s.type === "Boat Transfer" ? s.departureTime || "—" : "—"}</td>
+                      <td>{s.type === "Boat Transfer" ? s.returnTime || "—" : "—"}</td>
                       <td className="num">{s.adultQty}</td>
                       <td className="num">{s.childrenQty}</td>
                       <td className="num">{s.focQty}</td>

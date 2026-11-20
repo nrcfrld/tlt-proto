@@ -2,9 +2,12 @@ import { useState, type FormEvent } from "react";
 import { useApp } from "../context/AppContext";
 import {
   bookingSources,
+  serviceStatuses,
   type AdditionalService,
+  type BoatOnlyOrder,
   type CommissionRule,
   type Reservation,
+  type ServiceDetails,
 } from "../types";
 import {
   calculateFinancials,
@@ -149,7 +152,7 @@ export function PaymentForm({
     event.preventDefault();
     const d = new FormData(event.currentTarget);
     const amount = roundMoney(Number(d.get("amount")));
-    if (!f.rule || f.needsReview) {
+    if (!f.commission || f.needsReview) {
       setError("Resolve the financial review before recording a payment.");
       return;
     }
@@ -188,7 +191,7 @@ export function PaymentForm({
                 required
               />
             </Field>
-            <Field label="Amount (USD)">
+            <Field label="Amount (IDR)">
               <input
                 name="amount"
                 type="number"
@@ -228,22 +231,27 @@ export function PaymentForm({
     </Modal>
   );
 }
-export function ServiceForm({
-  reservation,
-  service,
-  onClose,
-}: {
-  reservation?: Reservation;
-  service?: AdditionalService;
-  onClose: () => void;
-}) {
-  const { reservations, properties, saveService } = useApp();
+type ServiceFormProps = (
+  | { mode?: "service"; reservation?: Reservation; service?: AdditionalService; boatOnly?: never }
+  | { mode: "boat-order"; reservation?: never; service?: AdditionalService; boatOnly?: never }
+  | { mode: "boat-order"; reservation?: never; service?: never; boatOnly: BoatOnlyOrder }
+) & { onClose: () => void };
+
+export function ServiceForm({ mode, reservation, service, boatOnly, onClose }: ServiceFormProps) {
+  const { reservations, properties, saveService, saveBoatOnlyOrder } = useApp();
+  const isBoatOrder = mode === "boat-order";
+  const existing = boatOnly ?? service;
+  const formTitle = `${existing ? "Edit" : "Add"} ${isBoatOrder ? "boat order" : "additional service"}`;
+  const [kind, setKind] = useState<"standalone" | "linked">(
+    isBoatOrder && !service ? "standalone" : "linked",
+  );
+  const isStandalone = kind === "standalone";
   const [reservationId, setReservationId] = useState(
-    reservation?.id || service?.reservationId || reservations[0].id,
+    reservation?.id || service?.reservationId || (isBoatOrder ? "" : reservations[0]?.id || ""),
   );
   const [type, setType] = useState(service?.type || "Boat Transfer");
   const [error, setError] = useState("");
-  const selected = reservations.find((r) => r.id === reservationId)!;
+  const selected = reservations.find((r) => r.id === reservationId);
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const d = new FormData(event.currentTarget);
@@ -261,77 +269,112 @@ export function ServiceForm({
       );
       return;
     }
-    saveService({
-      id: service?.id || createId(),
-      reservationId,
-      type: type === "Other" ? String(d.get("customType")).trim() : type,
+    const guestName = String(d.get("guestName") ?? "").trim();
+    if (isStandalone ? !guestName : !selected) {
+      setError(isStandalone ? "Enter the guest name." : "Select a reservation.");
+      return;
+    }
+    const details: ServiceDetails = {
+      id: existing?.id || createId(),
       date: String(d.get("date")),
       adultQty: quantities[0],
       childrenQty: quantities[1],
       focQty: quantities[2],
+      boatCompany: type === "Boat Transfer" ? String(d.get("boatCompany")).trim() || undefined : undefined,
+      departureTime: type === "Boat Transfer" ? String(d.get("departureTime")) || undefined : undefined,
+      returnTime: type === "Boat Transfer" ? String(d.get("returnTime")) || undefined : undefined,
       amount,
       notes: String(d.get("notes")),
-      status: String(d.get("status")) as AdditionalService["status"],
-    });
+      status: String(d.get("status")) as ServiceDetails["status"],
+    };
+    if (isStandalone) {
+      saveBoatOnlyOrder({ ...details, guestName });
+    } else {
+      saveService({
+        ...details,
+        reservationId,
+        type: type === "Other" ? String(d.get("customType")).trim() : type,
+      });
+    }
     onClose();
   };
   return (
     <Modal
-      title={service ? "Edit additional service" : "Add additional service"}
-      subtitle="Track services alongside the reservation."
+      title={formTitle}
+      subtitle={isBoatOrder ? undefined : "Track services alongside the reservation."}
       onClose={onClose}
     >
       <form onSubmit={submit}>
         <div className="form-body">
-          {!reservation && (
+          {isBoatOrder && !existing && (
+            <Field label="Order type">
+              <select value={kind} onChange={(e) => setKind(e.target.value === "linked" ? "linked" : "standalone")}>
+                <option value="standalone">Boat only</option>
+                <option value="linked">Linked reservation</option>
+              </select>
+            </Field>
+          )}
+          {isStandalone && (
+            <Field label="Guest name">
+              <input name="guestName" required maxLength={120} defaultValue={boatOnly?.guestName} />
+            </Field>
+          )}
+          {!reservation && !isStandalone && (
             <Field label="Reservation">
               <select
                 name="reservation"
                 value={reservationId}
+                required
                 onChange={(e) => setReservationId(e.target.value)}
               >
+                <option value="" disabled>Select a reservation</option>
                 {reservations.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.guestName} ·{" "}
                     {properties.find((p) => p.id === r.propertyId)?.name}
+                    {isBoatOrder ? ` · ${r.externalId}` : ""}
                   </option>
                 ))}
               </select>
             </Field>
           )}
-          <div className="form-grid">
-            <Field label="Service type">
-              <select
-                name="type"
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-              >
-                {[
-                  "Boat Transfer",
-                  "Airport Transfer",
-                  "Private Driver",
-                  "Other",
-                  ...(service &&
-                  ![
+          <div className={isBoatOrder ? undefined : "form-grid"}>
+            {!isBoatOrder && (
+              <Field label="Service type">
+                <select
+                  name="type"
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                >
+                  {[
                     "Boat Transfer",
                     "Airport Transfer",
                     "Private Driver",
                     "Other",
-                  ].includes(service.type)
-                    ? [service.type]
-                    : []),
-                ].map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
-            </Field>
+                    ...(service &&
+                    ![
+                      "Boat Transfer",
+                      "Airport Transfer",
+                      "Private Driver",
+                      "Other",
+                    ].includes(service.type)
+                      ? [service.type]
+                      : []),
+                  ].map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
+                </select>
+              </Field>
+            )}
             <Field label="Service date">
               <input
-                key={reservationId}
+                key={isBoatOrder ? undefined : reservationId}
                 name="date"
                 type="date"
+                min="0001-01-01"
+                max="9999-12-31"
                 required
-                defaultValue={service?.date || selected.checkIn}
+                defaultValue={existing?.date || (isBoatOrder ? undefined : selected?.checkIn)}
               />
             </Field>
           </div>
@@ -345,6 +388,26 @@ export function ServiceForm({
               />
             </Field>
           )}
+          {type === "Boat Transfer" && (
+            <div className="boat-fields">
+              <Field label="Boat company">
+                <select name="boatCompany" defaultValue={existing?.boatCompany || ""}>
+                  <option value="">Select boat company</option>
+                  {[...new Set(["Rocky", "Setia", ...(existing?.boatCompany ? [existing.boatCompany] : [])])].map((company) => (
+                    <option key={company} value={company}>{company}</option>
+                  ))}
+                </select>
+              </Field>
+              <div className="form-grid">
+                <Field label="Departure time">
+                  <input name="departureTime" type="time" defaultValue={existing?.departureTime} />
+                </Field>
+                <Field label="Return time">
+                  <input name="returnTime" type="time" defaultValue={existing?.returnTime} />
+                </Field>
+              </div>
+            </div>
+          )}
           <div className="form-grid quantities">
             <Field label="Adults">
               <input
@@ -352,7 +415,7 @@ export function ServiceForm({
                 type="number"
                 min="0"
                 step="1"
-                defaultValue={service?.adultQty ?? 2}
+                defaultValue={existing?.adultQty ?? 2}
                 required
               />
             </Field>
@@ -362,7 +425,7 @@ export function ServiceForm({
                 type="number"
                 min="0"
                 step="1"
-                defaultValue={service?.childrenQty ?? 0}
+                defaultValue={existing?.childrenQty ?? 0}
                 required
               />
             </Field>
@@ -372,19 +435,19 @@ export function ServiceForm({
                 type="number"
                 min="0"
                 step="1"
-                defaultValue={service?.focQty ?? 0}
+                defaultValue={existing?.focQty ?? 0}
                 required
               />
             </Field>
           </div>
           <div className="form-grid">
-            <Field label="Amount (USD)">
+            <Field label="Amount (IDR)">
               <input
                 name="amount"
                 type="number"
                 min="0"
                 step="0.01"
-                defaultValue={service?.amount}
+                defaultValue={existing?.amount}
                 placeholder="0.00"
                 required
               />
@@ -392,18 +455,16 @@ export function ServiceForm({
             <Field label="Status">
               <select
                 name="status"
-                defaultValue={service?.status || "Confirmed"}
+                defaultValue={existing?.status || (isBoatOrder ? "Pending" : "Confirmed")}
               >
-                <option>Confirmed</option>
-                <option>Pending</option>
-                <option>Cancelled</option>
+                {serviceStatuses.map((status) => <option key={status}>{status}</option>)}
               </select>
             </Field>
           </div>
           <Field label="Notes">
             <textarea
               name="notes"
-              defaultValue={service?.notes}
+              defaultValue={existing?.notes}
               placeholder="Transfer details, supplier or pickup notes"
               maxLength={500}
             />
@@ -417,7 +478,7 @@ export function ServiceForm({
         <div className="form-actions">
           <Button onClick={onClose}>Cancel</Button>
           <Button primary type="submit">
-            Save service
+            {isBoatOrder ? "Save boat order" : "Save service"}
           </Button>
         </div>
       </form>

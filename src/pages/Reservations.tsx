@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { SlidersHorizontal, X } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Plus, SlidersHorizontal, X } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { bookingSources } from "../types";
+import { bookingSources, reservationStatuses } from "../types";
 import { matchesFinancialStatus, summarize } from "../utils/financial";
 import { money } from "../utils/currency";
 import {
   Button,
   MonthFilter,
+  OriginFilter,
   PageHeader,
   PropertyFilter,
   SearchBox,
@@ -15,17 +16,23 @@ import {
   ExportButton,
 } from "../components/UI";
 import { ReservationTable } from "../components/ReservationTable";
+import { ManualReservationForm } from "../components/ManualBookingForms";
 export default function Reservations() {
-  const { reservations, rules, notify } = useApp();
+  const { reservations, reservationMonths, rules, notify } = useApp();
+  const navigate = useNavigate();
   const [params] = useSearchParams();
   const [search, setSearch] = useState("");
-  const [month, setMonth] = useState("2026-07");
+  const [month, setMonth] = useState(() => {
+    const selected = params.get("month");
+    return selected && reservationMonths.includes(selected) ? selected : "2026-07";
+  });
   const [property, setProperty] = useState("");
   const [source, setSource] = useState("");
-  const [pms, setPms] = useState("");
+  const [pms, setPms] = useState(params.get("origin") === "manual" ? "manual" : "");
   const [status, setStatus] = useState("");
   const [financial, setFinancial] = useState(params.get("financial") || "");
   const [advanced, setAdvanced] = useState(true);
+  const [manualOpen, setManualOpen] = useState(false);
   const rows = reservations.filter(
     (r) =>
       (!month || r.checkIn.startsWith(month)) &&
@@ -52,19 +59,24 @@ export default function Reservations() {
     <>
       <PageHeader
         title="Reservations"
-        description="One financial view of every booking, across both PMS platforms."
+        description="Review PMS bookings and reservations entered by your team."
         actions={
-          <ExportButton
-            onClick={() =>
-              notify("Reservations exported successfully · prototype export")
-            }
-          />
+          <>
+            <ExportButton
+              onClick={() =>
+                notify("Reservations exported successfully · prototype export")
+              }
+            />
+            <Button primary onClick={() => setManualOpen(true)}>
+              <Plus size={16} /> Add manual reservation
+            </Button>
+          </>
         }
       />
       <div className="filter-toolbar">
         <div className="filter-group">
           <SearchBox value={search} onChange={setSearch} />
-          <MonthFilter value={month} onChange={setMonth} />
+          <MonthFilter value={month} onChange={setMonth} additionalMonths={reservationMonths} />
           <PropertyFilter value={property} onChange={setProperty} />
         </div>
         <Button onClick={() => setAdvanced(!advanced)}>
@@ -83,28 +95,14 @@ export default function Reservations() {
               ...bookingSources.map((s) => ({ value: s, label: s })),
             ]}
           />
-          <Select
-            label="PMS"
-            value={pms}
-            onChange={setPms}
-            options={[
-              { value: "", label: "All PMS" },
-              { value: "guesty", label: "Guesty" },
-              { value: "guestpro", label: "GuestPro" },
-            ]}
-          />
+          <OriginFilter value={pms} onChange={setPms} />
           <Select
             label="Reservation status"
             value={status}
             onChange={setStatus}
             options={[
               { value: "", label: "All reservation statuses" },
-              ...[
-                "Confirmed",
-                "Completed",
-                "Cancelled",
-                "Cancelled - Full Refund",
-              ].map((s) => ({ value: s, label: s })),
+              ...reservationStatuses.map((s) => ({ value: s, label: s })),
             ]}
           />
           <Select
@@ -137,7 +135,7 @@ export default function Reservations() {
             Booking value <strong>{money(s.booking)}</strong>
           </span>
         </div>
-        <ReservationTable rows={rows} />
+        <ReservationTable rows={rows} showRemarks />
         <div className="table-bottom">
           <span>
             Showing {rows.length} of {reservations.length} reservations
@@ -146,9 +144,15 @@ export default function Reservations() {
         </div>
       </section>
       <div className="workspace-footnote">
-        Full-refund bookings carry zero financial value. Reservations without a
-        rule are excluded from calculated commission and owner totals.
+        Full-refund bookings carry zero financial value. Calculated commission
+        and owner totals require a matching rule or manual override.
       </div>
+      {manualOpen && (
+        <ManualReservationForm
+          onClose={() => setManualOpen(false)}
+          onSave={(id) => navigate(`/reservations/${id}`)}
+        />
+      )}
     </>
   );
 }

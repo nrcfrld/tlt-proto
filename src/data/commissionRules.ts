@@ -1,5 +1,6 @@
 import { reservations } from "./reservations";
 import type { CommissionRule } from "../types";
+import { defaultCommissionRates } from "../utils/commissionRates";
 export const commissionRules: CommissionRule[] = [];
 for (const reservation of reservations) {
   if (
@@ -10,39 +11,18 @@ for (const reservation of reservations) {
     )
   )
     continue;
-  const special =
-    reservation.propertyId === "villa-tranquilla" &&
-    reservation.source === "Booking.com";
-  const tlt =
-    reservation.source === "Owner"
-      ? 0
-      : reservation.source === "BFV"
-        ? 0.125
-        : reservation.source === "Booking.com"
-          ? 0.1
-          : 0.2;
-  const agent =
-    reservation.source === "BFV"
-      ? 0.125
-      : reservation.source === "Booking.com"
-        ? 0.1665
-        : reservation.source === "Airbnb"
-          ? 0.15
-          : reservation.source === "Agent"
-            ? 0.1
-            : 0;
+  const rates = defaultCommissionRates(reservation.source, reservation.propertyId);
   commissionRules.push({
     id: `rule-${commissionRules.length + 1}`,
     propertyId: reservation.propertyId,
     source: reservation.source,
-    tltCommissionRate: special ? 0.1 : tlt,
-    agentCommissionRate: special ? 0.1665 : agent,
+    ...rates,
     effectiveFrom: "2026-01-01",
     effectiveUntil: "2026-12-31",
     enabled: true,
   });
 }
-// One imported reservation deliberately has no applicable rule for the review workflow.
+// One property/source pairing deliberately has a disabled rule for review examples.
 const review = reservations[35];
 const reviewRule = commissionRules.find(
   (r) => r.propertyId === review.propertyId && r.source === review.source,

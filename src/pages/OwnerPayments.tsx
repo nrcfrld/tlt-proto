@@ -18,7 +18,7 @@ import {
 } from "../components/UI";
 import { PaymentForm } from "../components/Forms";
 export default function OwnerPayments() {
-  const { reservations, properties, rules } = useApp();
+  const { reservations, reservationMonths, properties, rules } = useApp();
   const [property, setProperty] = useState("");
   const [month, setMonth] = useState("2026-07");
   const [status, setStatus] = useState("");
@@ -49,7 +49,7 @@ export default function OwnerPayments() {
       />
       <div className="filter-toolbar">
         <div className="filter-group">
-          <MonthFilter value={month} onChange={setMonth} />
+          <MonthFilter value={month} onChange={setMonth} additionalMonths={reservationMonths} />
           <PropertyFilter value={property} onChange={setProperty} />
           <Select
             label="Settlement status"
@@ -110,7 +110,7 @@ export default function OwnerPayments() {
                   return (
                     <tr key={r.id}>
                       <td>
-                        <strong>{p.owner}</strong>
+                        <strong>{p.owner || "No owner recorded"}</strong>
                         <span className="cell-sub">{p.name}</span>
                       </td>
                       <td>
@@ -123,7 +123,7 @@ export default function OwnerPayments() {
                         <span className="cell-sub">{r.externalId}</span>
                       </td>
                       <td className="num">
-                        {f.rule ? money(f.ownerPayable) : "—"}
+                        {f.commission ? money(f.ownerPayable) : "—"}
                       </td>
                       <td className="num">
                         {money(f.ownerPaid)}
@@ -132,7 +132,7 @@ export default function OwnerPayments() {
                         </span>
                       </td>
                       <td className="num owner-value">
-                        {f.rule ? money(f.ownerOutstanding) : "—"}
+                        {f.commission ? money(f.ownerOutstanding) : "—"}
                         {f.ownerCredit > 0 && (
                           <span className="cell-sub review-text">
                             Credit {money(f.ownerCredit)} · review

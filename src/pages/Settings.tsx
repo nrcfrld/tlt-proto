@@ -21,11 +21,15 @@ export default function Settings() {
           </div>
           <div>
             <dt>Reporting currency</dt>
-            <dd>USD ($)</dd>
+            <dd>IDR (Rp)</dd>
           </div>
           <div>
             <dt>Default reporting month</dt>
             <dd>July 2026</dd>
+          </div>
+          <div>
+            <dt>Demo data coverage</dt>
+            <dd>January–December 2026 · synthetic annual scenarios</dd>
           </div>
           <div>
             <dt>Mock portfolio</dt>
@@ -67,8 +71,13 @@ export default function Settings() {
             exact business meaning is still being validated.
           </li>
           <li>
-            Boat Transfer is one of several generic additional service types.
-            Service amounts are separate from owner settlement.
+            Boat Order includes standalone orders and transfers linked to a
+            reservation. The boat report groups values by service date and status.
+            Boat amounts are separate from booking revenue, commissions and owner settlement.
+          </li>
+          <li>
+            Demo amounts are illustrative IDR values. Conversion from AUD or
+            another source currency requires an agreed exchange-rate policy.
           </li>
           <li>
             Full-refund reservations have zero booking financial value. Other

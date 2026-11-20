@@ -1,5 +1,8 @@
 import type {
   CommissionRule,
+  CommissionOverride,
+  CommissionSnapshot,
+  CommissionChange,
   FinancialCalculation,
   Reservation,
 } from "../types";
@@ -25,14 +28,25 @@ export function calculateFinancials(
   const rule = candidates.length === 1 ? candidates[0] : undefined;
   const bookingValue =
     r.status === "Cancelled - Full Refund" ? 0 : r.totalBooking;
-  const tltCommission = rule
-    ? roundMoney(bookingValue * rule.tltCommissionRate)
-    : 0;
-  const agentCommission = rule
-    ? roundMoney(bookingValue * rule.agentCommissionRate)
-    : 0;
+  const commission: CommissionOverride | undefined = r.commissionOverride ?? (rule
+    ? { method: "percent", tlt: rule.tltCommissionRate, agent: rule.agentCommissionRate }
+    : undefined);
+  let tltCommission = 0;
+  let agentCommission = 0;
+  if (commission && bookingValue > 0) {
+    if (commission.method === "amount") {
+      tltCommission = commission.tlt;
+      agentCommission = commission.agent;
+    } else {
+      tltCommission = roundMoney(bookingValue * commission.tlt);
+      agentCommission = roundMoney(bookingValue * commission.agent);
+      if (r.commissionOverride) {
+        agentCommission = Math.min(agentCommission, roundMoney(bookingValue - tltCommission));
+      }
+    }
+  }
   const ownerPayable =
-    rule || !bookingValue
+    commission || !bookingValue
       ? roundMoney(bookingValue - tltCommission - agentCommission)
       : 0;
   const ownerPaid = roundMoney(
@@ -44,20 +58,65 @@ export function calculateFinancials(
     agentCommission,
     ownerPayable,
     ownerPaid,
-    ownerOutstanding: rule
+    ownerOutstanding: commission
       ? Math.max(0, roundMoney(ownerPayable - ownerPaid))
       : 0,
-    ownerCredit: rule ? Math.max(0, roundMoney(ownerPaid - ownerPayable)) : 0,
+    ownerCredit: commission ? Math.max(0, roundMoney(ownerPaid - ownerPayable)) : 0,
     guestOutstanding: roundMoney(
       r.guestPayments
         .filter((p) => !p.paidAt)
         .reduce((s, p) => s + p.amount, 0),
     ),
     rule,
+    commission,
     needsReview:
-      (!rule && bookingValue > 0) ||
+      (!commission && bookingValue > 0) ||
       r.status === "Cancelled" ||
-      (!!rule && ownerPaid > ownerPayable),
+      (!!commission && ownerPaid > ownerPayable),
+  };
+}
+
+export function validateCommissionOverride(override: CommissionOverride, bookingValue: number) {
+  if (!Number.isFinite(override.tlt) || !Number.isFinite(override.agent) || override.tlt < 0 || override.agent < 0) {
+    return "Enter nonnegative values for both commissions.";
+  }
+  const total = override.tlt + override.agent;
+  if (override.method === "percent" && total > 1 + Number.EPSILON) {
+    return "Combined commissions cannot exceed 100%.";
+  }
+  if (override.method === "amount" && roundMoney(total) > bookingValue) {
+    return "Combined commissions cannot exceed the booking value.";
+  }
+}
+
+function commissionSnapshot(reservation: Reservation, rules: CommissionRule[]): CommissionSnapshot {
+  const f = calculateFinancials(reservation, rules);
+  return {
+    source: reservation.commissionOverride ? "manual" : f.rule ? "master" : "unresolved",
+    settings: f.commission ? { ...f.commission } : undefined,
+    tltCommission: f.tltCommission,
+    agentCommission: f.agentCommission,
+    ownerPayable: f.ownerPayable,
+  };
+}
+
+export function changeReservationCommission(
+  reservation: Reservation,
+  rules: CommissionRule[],
+  override: CommissionOverride | undefined,
+  details: Pick<CommissionChange, "id" | "changedAt" | "changedBy" | "reason">,
+): Reservation {
+  const before = reservation.commissionOverride;
+  if (
+    before?.method === override?.method && before?.tlt === override?.tlt && before?.agent === override?.agent
+  ) return reservation;
+  const next = { ...reservation, commissionOverride: override };
+  return {
+    ...next,
+    commissionHistory: [
+      ...(reservation.commissionHistory ?? []),
+      { ...details, before: commissionSnapshot(reservation, rules), after: commissionSnapshot(next, rules) },
+    ],
   };
 }
 export function summarize(

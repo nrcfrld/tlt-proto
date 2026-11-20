@@ -1,16 +1,21 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext";
-import { calculateFinancials } from "../utils/financial";
+import { calculateFinancials, financialStatus } from "../utils/financial";
 import { money, percent } from "../utils/currency";
-import { shortDate } from "../utils/dates";
+import { date, shortDate } from "../utils/dates";
+import type { ReportPayment } from "../utils/reservationReports";
 import type { Reservation } from "../types";
 import { Badge, Empty, PMS } from "./UI";
 export function ReservationTable({
   rows,
   compact = false,
+  showRemarks = false,
+  paymentColumn,
 }: {
   rows: Reservation[];
   compact?: boolean;
+  showRemarks?: boolean;
+  paymentColumn?: { label: string; byReservation: ReadonlyMap<string, ReportPayment[]> };
 }) {
   const { properties, rules } = useApp();
   const navigate = useNavigate();
@@ -24,12 +29,15 @@ export function ReservationTable({
             <th>Property / guest</th>
             {!compact && <th>Unit / booking ref</th>}
             <th>Stay dates</th>
-            <th>Source / PMS</th>
+            {paymentColumn && <th scope="col">{paymentColumn.label}</th>}
+            <th>Source / origin</th>
             <th className="num">Total booking</th>
             <th className="num">TLT commission</th>
             {!compact && <th className="num">Agent commission</th>}
             <th className="num">Owner payable</th>
-            <th>Status</th>
+            <th>Reservation status</th>
+            <th>Financial status</th>
+            {showRemarks && <th scope="col">Remarks</th>}
           </tr>
         </thead>
         <tbody>
@@ -45,7 +53,7 @@ export function ReservationTable({
                 </td>
                 {!compact && (
                   <td>
-                    {r.unit}
+                    {r.unit || "—"}
                     <span className="cell-sub ref">{r.externalId}</span>
                   </td>
                 )}
@@ -53,6 +61,18 @@ export function ReservationTable({
                   {shortDate(r.checkIn)} — {shortDate(r.checkOut)}
                   <span className="cell-sub">{r.nights} nights</span>
                 </td>
+                {paymentColumn && (
+                  <td>
+                    {paymentColumn.byReservation.get(r.id)?.map((payment) => (
+                      <div key={payment.id} className="report-payment-entry">
+                        {money(payment.amount)}
+                        <span className="cell-sub">
+                          {date(payment.paidAt)}{payment.kind ? ` · ${payment.kind}` : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </td>
+                )}
                 <td>
                   {r.source}
                   <span className="cell-sub">
@@ -66,34 +86,39 @@ export function ReservationTable({
                   )}
                 </td>
                 <td className="num">
-                  {f.rule ? money(f.tltCommission) : "—"}
+                  {f.commission ? money(f.tltCommission) : "—"}
                   <span className="cell-sub">
-                    {f.rule
-                      ? percent(f.rule.tltCommissionRate)
-                      : "No active rule"}
+                    {r.commissionOverride
+                      ? "Manual override"
+                      : f.rule ? percent(f.rule.tltCommissionRate) : "No active rule"}
                   </span>
                 </td>
                 {!compact && (
                   <td className="num">
-                    {f.rule ? money(f.agentCommission) : "—"}
+                    {f.commission ? money(f.agentCommission) : "—"}
                     <span className="cell-sub">
-                      {f.rule
-                        ? percent(f.rule.agentCommissionRate)
-                        : "Needs review"}
+                      {f.commission?.method === "percent"
+                        ? percent(f.commission.agent)
+                        : f.commission ? "Fixed amount" : "Needs review"}
                     </span>
                   </td>
                 )}
                 <td className="num owner-value">
-                  {f.rule || !f.bookingValue ? money(f.ownerPayable) : "—"}
+                  {f.commission || !f.bookingValue ? money(f.ownerPayable) : "—"}
                 </td>
                 <td>
                   <Badge>{r.status}</Badge>
-                  {f.needsReview && (
-                    <span className="cell-sub review-text">
-                      Financial review
-                    </span>
-                  )}
                 </td>
+                <td>
+                  <Badge>{financialStatus(r, rules)}</Badge>
+                </td>
+                {showRemarks && (
+                  <td>
+                    <span className="reservation-remarks-preview truncated" title={r.remarks || undefined}>
+                      {r.remarks || "—"}
+                    </span>
+                  </td>
+                )}
               </tr>
             );
           })}

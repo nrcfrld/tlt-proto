@@ -1,4 +1,4 @@
-import type { Property } from "../types";
+import type { ManagedProperty } from "../types";
 const names = [
   "Villa Sayang",
   "Villa Coral",
@@ -27,7 +27,7 @@ const owners = [
   "James Sullivan",
   "Ketut Arimbawa",
 ];
-export const properties: Property[] = names.map((name, i) => ({
+export const properties: ManagedProperty[] = names.map((name, i) => ({
   id: name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")

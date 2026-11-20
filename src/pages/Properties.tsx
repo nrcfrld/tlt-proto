@@ -1,22 +1,25 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ChevronRight, Info } from "lucide-react";
+import { ArrowLeft, ChevronRight, Info, Plus } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { percent } from "../utils/currency";
 import { date } from "../utils/dates";
 import {
   Badge,
+  Button,
   Empty,
+  OriginFilter,
   PageHeader,
   PMS,
   SearchBox,
-  Select,
 } from "../components/UI";
 import { ReservationTable } from "../components/ReservationTable";
+import { ManualPropertyForm, ManualReservationForm } from "../components/ManualBookingForms";
 export default function Properties() {
   const { properties, reservations } = useApp();
   const [search, setSearch] = useState("");
   const [pms, setPms] = useState("");
+  const [manualOpen, setManualOpen] = useState(false);
   const navigate = useNavigate();
   const rows = properties.filter(
     (p) =>
@@ -29,7 +32,12 @@ export default function Properties() {
     <>
       <PageHeader
         title="Properties"
-        description="Your property registry and PMS mappings, connected to the financial workspace."
+        description="Manage PMS mappings and non-managed properties."
+        actions={
+          <Button primary onClick={() => setManualOpen(true)}>
+            <Plus size={16} /> Add non-managed property
+          </Button>
+        }
       />
       <div className="filter-toolbar">
         <div className="filter-group">
@@ -38,18 +46,9 @@ export default function Properties() {
             value={search}
             onChange={setSearch}
           />
-          <Select
-            label="PMS"
-            value={pms}
-            onChange={setPms}
-            options={[
-              { value: "", label: "All PMS" },
-              { value: "guesty", label: "Guesty" },
-              { value: "guestpro", label: "GuestPro" },
-            ]}
-          />
+          <OriginFilter value={pms} onChange={setPms} />
         </div>
-        <span className="muted subtle">{rows.length} mapped properties</span>
+        <span className="muted subtle">{rows.length} properties</span>
       </div>
       <section className="panel">
         {rows.length ? (
@@ -58,7 +57,7 @@ export default function Properties() {
               <thead>
                 <tr>
                   <th>Property</th>
-                  <th>PMS</th>
+                  <th>Record origin</th>
                   <th>External PMS ID</th>
                   <th>Owner</th>
                   <th className="num">Reservations</th>
@@ -80,13 +79,13 @@ export default function Properties() {
                     <td>
                       <PMS provider={p.pmsProvider} />
                     </td>
-                    <td className="ref">{p.externalId}</td>
-                    <td>{p.owner}</td>
+                    <td className="ref">{p.externalId || "—"}</td>
+                    <td>{p.owner || "—"}</td>
                     <td className="num">
                       {reservations.filter((r) => r.propertyId === p.id).length}
                     </td>
                     <td>
-                      <Badge>{p.syncStatus}</Badge>
+                      <Badge>{p.syncStatus ?? "Non-managed"}</Badge>
                     </td>
                     <td>
                       <ChevronRight size={16} />
@@ -107,12 +106,20 @@ export default function Properties() {
           inventory and pricing stay in Guesty and GuestPro.
         </p>
       </div>
+      {manualOpen && (
+        <ManualPropertyForm
+          onClose={() => setManualOpen(false)}
+          onSave={(id) => navigate(`/properties/${id}`)}
+        />
+      )}
     </>
   );
 }
 export function PropertyDetail() {
   const { id } = useParams();
   const { properties, reservations, rules } = useApp();
+  const [manualOpen, setManualOpen] = useState(false);
+  const navigate = useNavigate();
   const p = properties.find((p) => p.id === id);
   if (!p)
     return (
@@ -131,8 +138,12 @@ export function PropertyDetail() {
       </Link>
       <PageHeader
         title={p.name}
-        description={`Owner · ${p.owner}`}
-        actions={<Badge>{p.syncStatus}</Badge>}
+        description={p.owner ? `Owner · ${p.owner}` : "No owner recorded"}
+        actions={p.pmsProvider === "manual" ? (
+          <Button primary onClick={() => setManualOpen(true)}>
+            <Plus size={16} /> Add manual reservation
+          </Button>
+        ) : <Badge>{p.syncStatus}</Badge>}
       />
       {p.syncStatus === "Error" && (
         <div className="review-banner">
@@ -148,22 +159,24 @@ export function PropertyDetail() {
       )}
       <section className="panel">
         <div className="panel-heading">
-          <h2>Property mapping</h2>
+          <h2>{p.pmsProvider === "manual" ? "Non-managed property" : "Property mapping"}</h2>
         </div>
         <div className="info-grid">
           <div>
-            <dt>PMS platform</dt>
+            <dt>Record origin</dt>
             <dd>
               <PMS provider={p.pmsProvider} />
             </dd>
           </div>
-          <div>
-            <dt>External PMS ID</dt>
-            <dd>{p.externalId}</dd>
-          </div>
+          {p.externalId && (
+            <div>
+              <dt>External PMS ID</dt>
+              <dd>{p.externalId}</dd>
+            </div>
+          )}
           <div>
             <dt>Owner</dt>
-            <dd>{p.owner}</dd>
+            <dd>{p.owner || "—"}</dd>
           </div>
           <div>
             <dt>Reservations</dt>
@@ -171,6 +184,13 @@ export function PropertyDetail() {
           </div>
         </div>
       </section>
+      {manualOpen && (
+        <ManualReservationForm
+          propertyId={p.id}
+          onClose={() => setManualOpen(false)}
+          onSave={(id) => navigate(`/reservations/${id}`)}
+        />
+      )}
       <section className="panel spaced-panel">
         <div className="panel-heading">
           <h2>Active commission rules</h2>

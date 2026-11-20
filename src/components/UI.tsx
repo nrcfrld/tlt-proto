@@ -1,7 +1,8 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { X, Search, CalendarDays, ChevronDown, Download } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { money } from "../utils/currency";
+import type { RecordOrigin } from "../types";
+import { compactMoney, money } from "../utils/currency";
 export function Badge({
   children,
   kind,
@@ -21,12 +22,28 @@ export function Badge({
           : "neutral");
   return <span className={`badge ${cls}`}>{children}</span>;
 }
-export function PMS({ provider }: { provider: string }) {
+export function PMS({ provider }: { provider: RecordOrigin }) {
+  if (provider === "manual") return <Badge>Manual</Badge>;
   return (
     <span className={`pms ${provider}`}>
       <span className="pms-mark">{provider === "guesty" ? "g" : "gp"}</span>
       {provider === "guesty" ? "Guesty" : "GuestPro"}
     </span>
+  );
+}
+export function OriginFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <Select
+      label="Record origin"
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: "", label: "All origins" },
+        { value: "guesty", label: "Guesty" },
+        { value: "guestpro", label: "GuestPro" },
+        { value: "manual", label: "Manual" },
+      ]}
+    />
   );
 }
 export function PageHeader({
@@ -106,10 +123,20 @@ export function Select({
 export function MonthFilter({
   value,
   onChange,
+  additionalMonths = [],
+  allowCustomRange = false,
 }: {
   value: string;
   onChange: (v: string) => void;
+  additionalMonths?: string[];
+  allowCustomRange?: boolean;
 }) {
+  const months = [...new Set([
+    ...Array.from({ length: 12 }, (_, i) => `2026-${String(i + 1).padStart(2, "0")}`),
+    ...additionalMonths,
+    ...(value && value !== "custom" ? [value] : []),
+  ])].sort();
+  const label = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
   return (
     <div className="month-filter">
       <CalendarDays size={16} />
@@ -118,10 +145,12 @@ export function MonthFilter({
         value={value}
         onChange={onChange}
         options={[
-          { value: "2026-07", label: "July 2026" },
-          { value: "2026-06", label: "June 2026" },
-          { value: "2026-08", label: "August 2026" },
-          { value: "", label: "All months" },
+          ...months.map((month) => ({
+            value: month,
+            label: label.format(new Date(`${month}-01T00:00:00Z`)),
+          })),
+          { value: "", label: allowCustomRange ? "All dates" : "All months" },
+          ...(allowCustomRange ? [{ value: "custom", label: "Custom range" }] : []),
         ]}
       />
     </div>
@@ -188,7 +217,9 @@ export function Empty({
 }
 export function Metrics({
   items,
+  compact = false,
 }: {
+  compact?: boolean;
   items: {
     label: string;
     value: number;
@@ -205,7 +236,12 @@ export function Metrics({
           key={item.label}
         >
           <span>{item.label}</span>
-          <strong>{item.count ? item.value : money(item.value)}</strong>
+          <strong
+            title={compact && !item.count ? money(item.value) : undefined}
+            aria-label={compact && !item.count ? money(item.value) : undefined}
+          >
+            {item.count ? item.value : compact ? compactMoney(item.value) : money(item.value)}
+          </strong>
           {item.note && <small>{item.note}</small>}
         </div>
       ))}

@@ -1,4 +1,4 @@
-import { NavLink, Route, Routes, useLocation, Link } from "react-router-dom";
+import { NavLink, Route, Routes, useLocation, useNavigate, Link } from "react-router-dom";
 import {
   LayoutDashboard,
   CalendarRange,
@@ -6,16 +6,18 @@ import {
   Percent,
   Wallet,
   Ship,
+  ListPlus,
   ChartNoAxesCombined,
   Plug,
   Settings,
+  Users,
   ChevronDown,
   PanelLeftClose,
   Menu,
   X,
   CircleHelp,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import Dashboard from "./pages/Dashboard";
 import Reservations from "./pages/Reservations";
 import ReservationDetail from "./pages/ReservationDetail";
@@ -23,11 +25,49 @@ import Properties, { PropertyDetail } from "./pages/Properties";
 import CommissionRules from "./pages/CommissionRules";
 import OwnerPayments from "./pages/OwnerPayments";
 import AdditionalServices from "./pages/AdditionalServices";
+import BoatOrders from "./pages/BoatOrders";
 import Reports from "./pages/Reports";
 import Integrations from "./pages/Integrations";
 import SettingsPage from "./pages/Settings";
-import { Toast } from "./components/UI";
+import UserManagement from "./pages/UserManagement";
+import { Button, Toast } from "./components/UI";
+import { useApp } from "./context/AppContext";
+import { accessModules, type AccessModule } from "./data/access";
+import Login from "./pages/Login";
+
+const mainNavigation = [
+  { to: "/", icon: LayoutDashboard, page: Dashboard },
+  { to: "/reservations", icon: CalendarRange, page: Reservations, detail: ReservationDetail },
+  { to: "/properties", icon: Building2, page: Properties, detail: PropertyDetail },
+  { to: "/boat-orders", icon: Ship, page: BoatOrders },
+] as const;
+const financeNavigation = [
+  { to: "/financials/commission-rules", icon: Percent, page: CommissionRules },
+  { to: "/financials/owner-payments", icon: Wallet, page: OwnerPayments },
+  { to: "/additional-services", icon: ListPlus, page: AdditionalServices },
+  { to: "/reports", icon: ChartNoAxesCombined, page: Reports },
+] as const;
+const adminNavigation = [
+  { to: "/integrations", icon: Plug, page: Integrations },
+  { to: "/user-management", icon: Users, page: UserManagement },
+  { to: "/settings", icon: Settings, page: SettingsPage },
+] as const;
+const navigation = [...mainNavigation, ...financeNavigation, ...adminNavigation];
+
 export default function App() {
+  const [loggedIn, setLoggedIn] = useState(false);
+  const navigate = useNavigate();
+  if (!loggedIn) {
+    return <Login onLogin={() => {
+      setLoggedIn(true);
+      navigate("/", { replace: true });
+    }} />;
+  }
+  return <AppShell />;
+}
+
+function AppShell() {
+  const { canAccess, currentUser, currentRole, previewUserId, endAccessPreview } = useApp();
   const [menu, setMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(
     () => window.matchMedia("(max-width:760px)").matches,
@@ -71,11 +111,32 @@ export default function App() {
     };
   }, [menu, isMobile]);
   const location = useLocation();
-  const nav = [
-    { to: "/", title: "Dashboard", icon: LayoutDashboard },
-    { to: "/reservations", title: "Reservations", icon: CalendarRange },
-    { to: "/properties", title: "Properties", icon: Building2 },
-  ];
+  const firstPage = navigation.find((item) => canAccess(item.to))?.to;
+  const currentPage = navigation.find(({ to }) =>
+    to === "/" ? location.pathname === to :
+      location.pathname === to || location.pathname.startsWith(to + "/"),
+  );
+  const initials = currentUser?.name.split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase();
+  const renderLink = (item: (typeof navigation)[number]) => (
+    <NavLink
+      end={item.to === "/"}
+      key={item.to}
+      to={item.to}
+      onClick={() => setMenu(false)}
+      className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}
+    >
+      <item.icon size={18} />
+      {accessModules[item.to]}
+    </NavLink>
+  );
+  const requireAccess = (module: AccessModule, Page: ComponentType) =>
+    canAccess(module) ? <Page /> : (
+      <div className="empty">
+        <h1>Access denied</h1>
+        <p>Your role does not have access to {accessModules[module]}.</p>
+        {firstPage && <Link className="text-link" to={firstPage}>Go to {accessModules[firstPage]}</Link>}
+      </div>
+    );
   return (
     <div className="app-shell">
       <aside
@@ -84,7 +145,7 @@ export default function App() {
         inert={isMobile && !menu}
         className={`sidebar ${menu ? "open" : ""}`}
       >
-        <Link to="/" className="brand" onClick={() => setMenu(false)}>
+        <Link to={firstPage ?? "/"} className="brand" onClick={() => setMenu(false)}>
           <span className="brand-symbol">
             tlt<span>·</span>
           </span>
@@ -100,81 +161,18 @@ export default function App() {
           <ChevronDown size={15} />
         </div>
         <nav aria-label="Main navigation">
-          {nav.map((n) => (
-            <NavLink
-              end={n.to === "/"}
-              key={n.to}
-              to={n.to}
-              onClick={() => setMenu(false)}
-              className={({ isActive }) =>
-                isActive ? "nav-item active" : "nav-item"
-              }
-            >
-              <n.icon size={18} />
-              {n.title}
-            </NavLink>
-          ))}
-          <div className="nav-section">Financials</div>
-          {[
-            {
-              to: "/financials/commission-rules",
-              title: "Commission rules",
-              icon: Percent,
-            },
-            {
-              to: "/financials/owner-payments",
-              title: "Owner payments",
-              icon: Wallet,
-            },
-            {
-              to: "/additional-services",
-              title: "Additional services",
-              icon: Ship,
-            },
-            { to: "/reports", title: "Reports", icon: ChartNoAxesCombined },
-          ].map((n) => (
-            <NavLink
-              key={n.to}
-              to={n.to}
-              onClick={() => setMenu(false)}
-              className={({ isActive }) =>
-                isActive ? "nav-item active" : "nav-item"
-              }
-            >
-              <n.icon size={18} />
-              {n.title}
-            </NavLink>
-          ))}
+          {mainNavigation.filter((item) => canAccess(item.to)).map(renderLink)}
+          {financeNavigation.some((item) => canAccess(item.to)) && (
+            <div className="nav-section">Financials</div>
+          )}
+          {financeNavigation.filter((item) => canAccess(item.to)).map(renderLink)}
         </nav>
         <div className="sidebar-bottom">
-          <div className="prototype-note">
-            <span className="prototype-tag">DEMO WORKSPACE</span>
-            <p>
-              All data is mocked.
-              <br />
-              Changes reset on refresh.
-            </p>
-          </div>
-          {[
-            { to: "/integrations", title: "Integrations", icon: Plug },
-            { to: "/settings", title: "Settings", icon: Settings },
-          ].map((n) => (
-            <NavLink
-              key={n.to}
-              to={n.to}
-              onClick={() => setMenu(false)}
-              className={({ isActive }) =>
-                isActive ? "nav-item active" : "nav-item"
-              }
-            >
-              <n.icon size={18} />
-              {n.title}
-            </NavLink>
-          ))}
+          {adminNavigation.filter((item) => canAccess(item.to)).map(renderLink)}
           <div className="user-profile">
-            <span className="user-avatar">EN</span>
+            <span className="user-avatar">{initials}</span>
             <div>
-              Enrico<small>Workspace admin</small>
+              {currentUser?.name}<small>{currentRole?.name}</small>
             </div>
             <PanelLeftClose size={17} />
           </div>
@@ -203,62 +201,42 @@ export default function App() {
             <span>Workspace</span>
             <span className="breadcrumb-slash">/</span>
             <strong>
-              {location.pathname === "/"
-                ? "Overview"
-                : location.pathname.startsWith("/financials")
-                  ? "Financials"
-                  : location.pathname.startsWith("/reservations")
-                    ? "Reservations"
-                    : location.pathname.startsWith("/properties")
-                      ? "Properties"
-                      : location.pathname === "/reports"
-                        ? "Reports"
-                        : location.pathname === "/integrations"
-                          ? "Integrations"
-                          : location.pathname === "/settings"
-                            ? "Settings"
-                            : "Additional services"}
+              {currentPage?.to === "/" ? "Overview" :
+                currentPage?.to.startsWith("/financials") ? "Financials" :
+                currentPage ? accessModules[currentPage.to] : "Page not found"}
             </strong>
           </div>
           <div className="topbar-right">
-            <span className="currency-label">USD</span>
+            <span className="currency-label">IDR</span>
             <span className="vertical-rule" />
-            <Link aria-label="Prototype assumptions" to="/settings">
-              <CircleHelp size={18} />
-            </Link>
-            <span className="small-avatar">EN</span>
+            {canAccess("/settings") && (
+              <Link aria-label="Prototype assumptions" to="/settings">
+                <CircleHelp size={18} />
+              </Link>
+            )}
+            <span className="small-avatar">{initials}</span>
           </div>
         </div>
         <main>
+          {previewUserId && (
+            <div className="access-preview panel">
+              <p>Previewing access as <strong>{currentUser?.name}</strong> ({currentRole?.name}).</p>
+              <Button onClick={endAccessPreview}>Exit preview</Button>
+            </div>
+          )}
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/reservations" element={<Reservations />} />
-            <Route path="/reservations/:id" element={<ReservationDetail />} />
-            <Route path="/properties" element={<Properties />} />
-            <Route path="/properties/:id" element={<PropertyDetail />} />
-            <Route
-              path="/financials/commission-rules"
-              element={<CommissionRules />}
-            />
-            <Route
-              path="/financials/owner-payments"
-              element={<OwnerPayments />}
-            />
-            <Route
-              path="/additional-services"
-              element={<AdditionalServices />}
-            />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/integrations" element={<Integrations />} />
-            <Route path="/settings" element={<SettingsPage />} />
+            {navigation.map((item) => (
+              <Route key={item.to} path={item.to} element={requireAccess(item.to, item.page)} />
+            ))}
+            {navigation.map((item) => "detail" in item && (
+              <Route key={item.to} path={item.to + "/:id"} element={requireAccess(item.to, item.detail)} />
+            ))}
             <Route
               path="*"
               element={
                 <div className="empty">
                   <h1>Page not found</h1>
-                  <Link className="text-link" to="/">
-                    Return to dashboard
-                  </Link>
+                  {firstPage && <Link className="text-link" to={firstPage}>Go to {accessModules[firstPage]}</Link>}
                 </div>
               }
             />

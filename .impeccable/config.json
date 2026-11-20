@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "src/styles.css"
+        ],
+        "createdAt": "2026-11-20T02:34:26.949Z",
+        "reason": "Agent: the flagged .bar width transition is overridden by a later unconditional .bar { transition: none; } declaration of equal specificity; both declarations predate Boat Order."
+      }
+    ]
+  }
+}

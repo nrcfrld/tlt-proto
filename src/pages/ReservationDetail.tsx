@@ -15,13 +15,52 @@ import { useApp } from "../context/AppContext";
 import { calculateFinancials } from "../utils/financial";
 import { money, percent } from "../utils/currency";
 import { date } from "../utils/dates";
-import { Badge, Button, PMS } from "../components/UI";
+import { Badge, Button, Field, PMS } from "../components/UI";
 import {
   GuestPaymentForm,
   PaymentForm,
   ServiceForm,
 } from "../components/Forms";
 import type { AdditionalService } from "../types";
+import { ReservationCommissionForm, ReservationCommissionHistory } from "../components/ReservationCommission";
+
+function ReservationRemarks({
+  reservationId,
+  remarks = "",
+}: {
+  reservationId: string;
+  remarks?: string;
+}) {
+  const { saveReservationRemarks } = useApp();
+  const [draft, setDraft] = useState(remarks);
+  const cleaned = draft.trim();
+
+  return (
+    <form
+      className="reservation-remarks"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (cleaned === remarks) return;
+        saveReservationRemarks(reservationId, cleaned);
+        setDraft(cleaned);
+      }}
+    >
+      <Field label="Remarks">
+        <textarea
+          name="remarks"
+          rows={3}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="Add a note about this reservation"
+        />
+      </Field>
+      <Button type="submit" className="small" disabled={cleaned === remarks}>
+        Save remarks
+      </Button>
+    </form>
+  );
+}
+
 export default function ReservationDetail() {
   const { id } = useParams();
   const { reservations, properties, rules, services } = useApp();
@@ -30,6 +69,7 @@ export default function ReservationDetail() {
   const [serviceOpen, setServiceOpen] = useState(false);
   const [editing, setEditing] = useState<AdditionalService>();
   const [guestPayment, setGuestPayment] = useState("");
+  const [commissionOpen, setCommissionOpen] = useState(false);
   if (!r)
     return (
       <div className="empty">
@@ -40,13 +80,14 @@ export default function ReservationDetail() {
       </div>
     );
   const p = properties.find((p) => p.id === r.propertyId)!;
+  const isManual = r.pmsProvider === "manual";
   const f = calculateFinancials(r, rules);
   const ownServices = services.filter((s) => s.reservationId === r.id);
   return (
     <>
-      <Link className="back-link" to="/reservations">
+      <Link className="back-link" to={isManual ? `/reservations?month=${r.checkIn.slice(0, 7)}&origin=manual` : "/reservations"}>
         <ArrowLeft size={15} />
-        All reservations
+        {isManual ? "Back to manual reservations" : "All reservations"}
       </Link>
       <header className="reservation-heading">
         <div>
@@ -75,9 +116,9 @@ export default function ReservationDetail() {
             <p>
               {f.ownerCredit > 0
                 ? "Recorded owner payments exceed the revised payable. Review the overpayment credit before further settlement."
-                : !f.rule
-                  ? "No single active commission rule covers this property, source and check-in date. Add or enable a rule before settling the owner."
-                  : "This cancelled booking retains its imported amount. Confirm the refund treatment before settling the owner."}
+                : !f.commission
+                  ? "Set the commission for this reservation or enable a matching rule before settling the owner."
+                  : "This cancelled booking retains its booking value. Confirm the refund treatment before settling the owner."}
             </p>
           </div>
           <Link
@@ -93,14 +134,14 @@ export default function ReservationDetail() {
           <section className="panel booking-panel">
             <div className="panel-heading">
               <h2>Booking information</h2>
-              <span className="muted subtle">Imported reservation</span>
+              <span className="muted subtle">{isManual ? "Manual reservation" : "Imported reservation"}</span>
             </div>
             <div className="info-grid">
               {[
                 ["Booking reference", r.externalId],
                 ["Guest", r.guestName],
                 ["Property", p.name],
-                ["Unit / villa", r.unit],
+                ["Unit / villa", r.unit || "—"],
                 ["Check-in", date(r.checkIn)],
                 ["Check-out", date(r.checkOut)],
                 ["Nights", String(r.nights)],
@@ -112,7 +153,7 @@ export default function ReservationDetail() {
                 </div>
               ))}
               <div>
-                <dt>PMS platform</dt>
+                <dt>{isManual ? "Record origin" : "PMS platform"}</dt>
                 <dd>
                   <PMS provider={r.pmsProvider} />
                 </dd>
@@ -123,6 +164,7 @@ export default function ReservationDetail() {
                   <Badge>{r.status}</Badge>
                 </dd>
               </div>
+              <ReservationRemarks key={r.id} reservationId={r.id} remarks={r.remarks} />
             </div>
           </section>
           <section className="panel">
@@ -205,6 +247,12 @@ export default function ReservationDetail() {
                       {s.focQty} FOC · {date(s.date)}
                     </p>
                     {s.notes && <small>{s.notes}</small>}
+                    {s.type === "Boat Transfer" && (
+                      <p>
+                        Boat company: {s.boatCompany || "—"} · Departure: {s.departureTime || "—"}
+                        {" "}· Return: {s.returnTime || "—"}
+                      </p>
+                    )}
                   </div>
                   <strong>{money(s.amount)}</strong>
                   <button
@@ -234,7 +282,11 @@ export default function ReservationDetail() {
           <section className="panel financial-panel">
             <div className="panel-heading">
               <h2>Financial breakdown</h2>
-              <span className="currency-chip">USD</span>
+              {r.status === "Cancelled - Full Refund" ? <span className="currency-chip">IDR</span> : (
+                <Button className="small" onClick={() => setCommissionOpen(true)}>
+                  <Pencil size={14} /> Edit commission
+                </Button>
+              )}
             </div>
             <div className="financial-lines">
               <div>
@@ -250,35 +302,35 @@ export default function ReservationDetail() {
                 <span>
                   TLT commission{" "}
                   <small>
-                    {f.rule ? percent(f.rule.tltCommissionRate) : "—"}
+                    {f.commission?.method === "percent" ? percent(f.commission.tlt) : null}
                   </small>
                 </span>
-                <strong>{f.rule ? `−${money(f.tltCommission)}` : "—"}</strong>
+                <strong>{f.commission ? `−${money(f.tltCommission)}` : "—"}</strong>
               </div>
               <div className="deduction">
                 <span>
                   Other agent commission{" "}
                   <small>
-                    {f.rule ? percent(f.rule.agentCommissionRate) : "—"}
+                    {f.commission?.method === "percent" ? percent(f.commission.agent) : null}
                   </small>
                 </span>
-                <strong>{f.rule ? `−${money(f.agentCommission)}` : "—"}</strong>
+                <strong>{f.commission ? `−${money(f.agentCommission)}` : "—"}</strong>
               </div>
               <div className="owner-total">
                 <span>Total to owner</span>
                 <strong>
-                  {f.rule || !f.bookingValue
+                  {f.commission || !f.bookingValue
                     ? money(f.ownerPayable)
-                    : "Needs rule"}
+                    : "Needs commission"}
                 </strong>
               </div>
             </div>
             <div className="applied-rule">
-              <span>Applied commission rule</span>
+              <span>Commission source</span>
               <strong>
-                {f.rule ? `${p.name} + ${r.source}` : "No applicable rule"}
+                {r.commissionOverride ? "Manual override" : f.rule ? `${p.name} + ${r.source}` : "No applicable rule"}
               </strong>
-              {f.rule && (
+              {f.rule && !r.commissionOverride && (
                 <Link
                   className="text-link"
                   to={`/financials/commission-rules?rule=${f.rule.id}&property=${r.propertyId}`}
@@ -296,18 +348,19 @@ export default function ReservationDetail() {
               </p>
             </div>
           </section>
+          <ReservationCommissionHistory history={r.commissionHistory} />
           <section className="panel settlement-panel">
             <div className="panel-heading">
               <div>
                 <h2>Owner settlement</h2>
-                <p>{p.owner}</p>
+                <p>{p.owner || "No owner recorded"}</p>
               </div>
               <Wallet size={18} className="muted" />
             </div>
             <div className="settlement-summary">
               <div>
                 <span>Owner payable</span>
-                <strong>{f.rule ? money(f.ownerPayable) : "—"}</strong>
+                <strong>{f.commission ? money(f.ownerPayable) : "—"}</strong>
               </div>
               <div>
                 <span>Total paid</span>
@@ -315,7 +368,7 @@ export default function ReservationDetail() {
               </div>
               <div className="remaining">
                 <span>Remaining payable</span>
-                <strong>{f.rule ? money(f.ownerOutstanding) : "—"}</strong>
+                <strong>{f.commission ? money(f.ownerOutstanding) : "—"}</strong>
               </div>
               {f.ownerCredit > 0 && (
                 <div>
@@ -352,11 +405,11 @@ export default function ReservationDetail() {
               <Button
                 primary
                 className="full-width"
-                disabled={!f.rule || f.needsReview || f.ownerOutstanding <= 0}
+                disabled={!f.commission || f.needsReview || f.ownerOutstanding <= 0}
                 onClick={() => setPaymentOpen(true)}
               >
                 <Plus size={15} />
-                {f.ownerOutstanding <= 0 && f.rule
+                {f.ownerOutstanding <= 0 && f.commission && !f.needsReview
                   ? "Fully settled"
                   : "Record payment"}
               </Button>
@@ -364,7 +417,7 @@ export default function ReservationDetail() {
           </section>
           <Link
             className="detail-report-link"
-            to={`/reports?property=${r.propertyId}`}
+            to={`/reports?property=${r.propertyId}${isManual ? `&month=${r.checkIn.slice(0, 7)}` : ""}`}
           >
             <ArrowUpRight size={16} />
             View property financial report
@@ -378,6 +431,9 @@ export default function ReservationDetail() {
       {paymentOpen && (
         <PaymentForm reservation={r} onClose={() => setPaymentOpen(false)} />
       )}{" "}
+      {commissionOpen && (
+        <ReservationCommissionForm reservation={r} onClose={() => setCommissionOpen(false)} />
+      )}
       {serviceOpen && (
         <ServiceForm
           reservation={r}
